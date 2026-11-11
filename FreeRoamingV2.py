@@ -14,7 +14,8 @@ ZONE_INVALID = -1 # unknown
 ZONE_1 = 0 # < 8 inches
 ZONE_2 = 1
 ZONE_3 = 2
-ZONE_CNT = 3
+ZONE_4 = 3
+ZONE_CNT = 4
 
 def valid_zone(z):
     return (z > ZONE_INVALID) and (z < ZONE_CNT)
@@ -22,10 +23,10 @@ def valid_zone(z):
 ENABLE = "enabled"
 
 MOTOR = "motor"
-MOTOR_LEFT  = "l"
-MOTOR_RIGHT = "r"
-MOTOR_FWD   = "f"
-MOTOR_REV   = "r"
+MTR_LEFT  = "l"
+MTR_RIGHT = "r"
+MTR_FWD   = "f"
+MTR_REV   = "r"
 
 DIR = 1
 FWD = 2
@@ -70,25 +71,38 @@ def init_env():
 
     set_buggy_idle()
 
-Zone2Dist = {ZONE_1: ( 0, 18),
-             ZONE_2: (18, 40),
-             ZONE_3: (40, -1)}
+Zone2Dist = {ZONE_1: ( 0, 12),
+             ZONE_2: (12, 30),
+             ZONE_3: (30, 54),
+             ZONE_4: (54, -1)}
 
 # Index by Front zone
-ZONE_MAP = ( \
-    {DIST: Zone2Dist[ZONE_1], LED_COLOR: KPRB.RED, CAR_BACK: ( # Front ZONE_1
-        {DIST: Zone2Dist[ZONE_1],  LED_COLOR: KPRB.RED,     MOTOR_LEFT: (MOTOR_FWD,  30),  MOTOR_RIGHT: (MOTOR_REV,  30)},   # Back ZONE_1
-        {DIST: Zone2Dist[ZONE_2],  LED_COLOR: KPRB.YELLOW,  MOTOR_LEFT: (MOTOR_FWD,  30),  MOTOR_RIGHT: (MOTOR_REV,   0)},   # Back ZONE_2
-        {DIST: Zone2Dist[ZONE_3],  LED_COLOR: KPRB.GREEN,   MOTOR_LEFT: (MOTOR_REV,  50),  MOTOR_RIGHT: (MOTOR_REV,  20)})}, # Back ZONE_3
+ZONE_MAP = (
+    {DIST: Zone2Dist[ZONE_1], LED_COLOR: KPRB.RED, CAR_BACK:    ( # Front ZONE_1
+        {DIST: Zone2Dist[ZONE_1],  LED_COLOR: KPRB.RED,     MTR_LEFT: (MTR_REV,  30),  MTR_RIGHT: (MTR_FWD,  30)}, # Back ZONE_1
+        {DIST: Zone2Dist[ZONE_2],  LED_COLOR: KPRB.YELLOW,  MTR_LEFT: (MTR_REV,  15),  MTR_RIGHT: (MTR_FWD,  30)}, # Back ZONE_2
+        {DIST: Zone2Dist[ZONE_3],  LED_COLOR: KPRB.GREEN,   MTR_LEFT: (MTR_REV,  60),  MTR_RIGHT: (MTR_FWD,  10)}, # Back ZONE_3
+        {DIST: Zone2Dist[ZONE_4],  LED_COLOR: KPRB.BLUE,    MTR_LEFT: (MTR_REV, 100),  MTR_RIGHT: (MTR_REV,   0)}) # Back ZONE_4
+    },
     {DIST: Zone2Dist[ZONE_2], LED_COLOR: KPRB.YELLOW, CAR_BACK: ( # Front ZONE_2
-        {DIST: Zone2Dist[ZONE_1],  LED_COLOR: KPRB.RED,     MOTOR_LEFT: (MOTOR_FWD,  30),  MOTOR_RIGHT: (MOTOR_REV,  30)},   # Back ZONE_1
-        {DIST: Zone2Dist[ZONE_2],  LED_COLOR: KPRB.YELLOW,  MOTOR_LEFT: (MOTOR_FWD,  50),  MOTOR_RIGHT: (MOTOR_REV,  10)},   # Back ZONE_2
-        {DIST: Zone2Dist[ZONE_3],  LED_COLOR: KPRB.GREEN,   MOTOR_LEFT: (MOTOR_FWD,  60),  MOTOR_RIGHT: (MOTOR_FWD,   0)})}, # Back ZONE_3
-    {DIST: Zone2Dist[ZONE_3], LED_COLOR: KPRB.GREEN, CAR_BACK: ( # Front ZONE_2
-        {DIST: Zone2Dist[ZONE_1],  LED_COLOR: KPRB.RED,     MOTOR_LEFT: (MOTOR_FWD, 100),  MOTOR_RIGHT: (MOTOR_FWD, 100)},   # Back ZONE_1
-        {DIST: Zone2Dist[ZONE_2],  LED_COLOR: KPRB.YELLOW,  MOTOR_LEFT: (MOTOR_FWD,  80),  MOTOR_RIGHT: (MOTOR_FWD,  80)},   # Back ZONE_2
-        {DIST: Zone2Dist[ZONE_3],  LED_COLOR: KPRB.GREEN,   MOTOR_LEFT: (MOTOR_FWD,  60),  MOTOR_RIGHT: (MOTOR_FWD,  60)})}, # Back ZONE_3
-    )
+        {DIST: Zone2Dist[ZONE_1],  LED_COLOR: KPRB.RED,     MTR_LEFT: (MTR_FWD,  10),  MTR_RIGHT: (MTR_FWD,  80)}, # Back ZONE_1
+        {DIST: Zone2Dist[ZONE_2],  LED_COLOR: KPRB.YELLOW,  MTR_LEFT: (MTR_FWD,  10),  MTR_RIGHT: (MTR_FWD,  60)}, # Back ZONE_2
+        {DIST: Zone2Dist[ZONE_3],  LED_COLOR: KPRB.GREEN,   MTR_LEFT: (MTR_FWD,  10),  MTR_RIGHT: (MTR_FWD,  60)}, # Back ZONE_3
+        {DIST: Zone2Dist[ZONE_4],  LED_COLOR: KPRB.BLUE,    MTR_LEFT: (MTR_FWD,   0),  MTR_RIGHT: (MTR_FWD,  60)}) # Back ZONE_4
+    },
+    {DIST: Zone2Dist[ZONE_3], LED_COLOR: KPRB.GREEN, CAR_BACK:  ( # Front ZONE_3
+        {DIST: Zone2Dist[ZONE_1],  LED_COLOR: KPRB.RED,     MTR_LEFT: (MTR_FWD,  60),  MTR_RIGHT: (MTR_FWD, 100)}, # Back ZONE_1
+        {DIST: Zone2Dist[ZONE_2],  LED_COLOR: KPRB.YELLOW,  MTR_LEFT: (MTR_FWD,  50),  MTR_RIGHT: (MTR_FWD,  80)}, # Back ZONE_2
+        {DIST: Zone2Dist[ZONE_3],  LED_COLOR: KPRB.GREEN,   MTR_LEFT: (MTR_FWD,  40),  MTR_RIGHT: (MTR_FWD,  40)}, # Back ZONE_3
+        {DIST: Zone2Dist[ZONE_4],  LED_COLOR: KPRB.BLUE,    MTR_LEFT: (MTR_FWD,  30),  MTR_RIGHT: (MTR_FWD,  60)}) # Back ZONE_4
+    },
+    {DIST: Zone2Dist[ZONE_4], LED_COLOR: KPRB.BLUE, CAR_BACK:  ( # Front ZONE_2
+        {DIST: Zone2Dist[ZONE_1],  LED_COLOR: KPRB.RED,     MTR_LEFT: (MTR_FWD,  50),  MTR_RIGHT: (MTR_FWD, 100)}, # Back ZONE_1
+        {DIST: Zone2Dist[ZONE_2],  LED_COLOR: KPRB.YELLOW,  MTR_LEFT: (MTR_FWD,  80),  MTR_RIGHT: (MTR_FWD, 100)}, # Back ZONE_2
+        {DIST: Zone2Dist[ZONE_3],  LED_COLOR: KPRB.GREEN,   MTR_LEFT: (MTR_FWD,  80),  MTR_RIGHT: (MTR_FWD,  80)}, # Back ZONE_3
+        {DIST: Zone2Dist[ZONE_4],  LED_COLOR: KPRB.BLUE,    MTR_LEFT: (MTR_FWD,  30),  MTR_RIGHT: (MTR_FWD,  30)}) # Back ZONE_4
+    }
+)
 
 def map_zone(dist):
     global Zone2Dist
@@ -130,12 +144,12 @@ def roam_free():
                 buggy.motorOff("l")
                 buggy.motorOff("r")
 
-            buggy.motorOn(MOTOR_LEFT, 
-                          ZONE_MAP[fz][CAR_BACK][rz][MOTOR_LEFT][0],
-                          ZONE_MAP[fz][CAR_BACK][rz][MOTOR_LEFT][1])
-            buggy.motorOn(MOTOR_RIGHT, 
-                          ZONE_MAP[fz][CAR_BACK][rz][MOTOR_RIGHT][0],
-                          ZONE_MAP[fz][CAR_BACK][rz][MOTOR_RIGHT][1])
+            buggy.motorOn(MTR_LEFT, 
+                          ZONE_MAP[fz][CAR_BACK][rz][MTR_LEFT][0],
+                          ZONE_MAP[fz][CAR_BACK][rz][MTR_LEFT][1])
+            buggy.motorOn(MTR_RIGHT, 
+                          ZONE_MAP[fz][CAR_BACK][rz][MTR_RIGHT][0],
+                          ZONE_MAP[fz][CAR_BACK][rz][MTR_RIGHT][1])
             buggy.show()
         else: #motors turned off
             set_buggy_idle()
