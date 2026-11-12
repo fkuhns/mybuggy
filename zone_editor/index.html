@@ -1,0 +1,460 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Buggy Zone Editor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f4f6fb;
+    --card: #ffffff;
+    --ink: #1d2433;
+    --muted: #6b7489;
+    --line: #dde2ee;
+    --accent: #3b6cf6;
+    --accent-ink: #ffffff;
+    --bad: #d93838;
+    --bad-bg: #fdecec;
+    --good: #1f9d55;
+    --unused: #eceff5;
+    --radius: 14px;
+    --c-BLACK: #2a2a2a; --c-RED: #ef3b3b; --c-YELLOW: #ffb400; --c-GREEN: #22c55e;
+    --c-CYAN: #22d3ee; --c-BLUE: #3b82f6; --c-PURPLE: #a855f7; --c-WHITE: #ffffff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  h1, h2, h3 { font-family: Fredoka, system-ui, sans-serif; font-weight: 600; margin: 0; }
+  header {
+    position: sticky; top: 0; z-index: 10;
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+    padding: 12px 24px; background: var(--card); border-bottom: 1px solid var(--line);
+  }
+  header h1 { font-size: 1.5rem; flex: 1; }
+  header .file { color: var(--muted); font-size: .85rem; }
+  #status { font-weight: 600; font-size: .95rem; }
+  #status.dirty { color: #b26b00; }
+  #status.ok { color: var(--good); }
+  #status.err { color: var(--bad); }
+  button {
+    font: inherit; font-weight: 600; cursor: pointer; border-radius: 10px;
+    border: 1px solid var(--line); background: var(--card); color: var(--ink); padding: 8px 16px;
+  }
+  button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  main { max-width: 1240px; margin: 0 auto; padding: 24px; display: grid; gap: 28px; }
+  section > h2 { font-size: 1.35rem; margin-bottom: 4px; }
+  section > p.help { margin: 0 0 14px; color: var(--muted); max-width: 70ch; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); }
+
+  /* ---------- ruler ---------- */
+  #ruler { display: flex; height: 38px; border-radius: 10px; overflow: hidden; margin-bottom: 6px; border: 1px solid var(--line); }
+  #ruler div { display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: .85rem; min-width: 44px; }
+  #ruler-scale { display: flex; justify-content: space-between; color: var(--muted); font-size: .8rem; margin-bottom: 16px; }
+
+  /* ---------- zone cards ---------- */
+  #zones { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; }
+  .zone { padding: 16px; display: grid; gap: 12px; border-top: 8px solid var(--zc, #999); }
+  .zone.unused { background: var(--unused); border-top-color: #c3c8d4; }
+  .zone.unused > *:not(.zone-head):not(.unused-msg) { display: none; }
+  .zone-head { display: flex; justify-content: space-between; align-items: baseline; }
+  .zone-head h3 { font-size: 1.15rem; }
+  .zone-head .nick { color: var(--muted); font-size: .9rem; }
+  .unused-msg { color: var(--muted); font-size: .9rem; }
+  .dist { display: grid; grid-template-columns: auto 1fr; gap: 6px 10px; align-items: center; }
+  .dist label { font-size: .9rem; color: var(--muted); }
+  .dist .fixed { font-weight: 600; }
+  .stepper { display: flex; align-items: center; gap: 6px; }
+  .stepper button { padding: 4px 10px; min-width: 34px; }
+  .stepper input { width: 64px; font: inherit; font-weight: 600; text-align: center; padding: 5px; border: 1px solid var(--line); border-radius: 8px; }
+  .stepper input.bad { border-color: var(--bad); background: var(--bad-bg); }
+  .forever { display: flex; align-items: center; gap: 8px; font-size: .92rem; }
+  .err { color: var(--bad); font-size: .85rem; font-weight: 600; }
+  .swatch-label { font-size: .9rem; color: var(--muted); margin-bottom: 4px; }
+  .swatches { display: flex; flex-wrap: wrap; gap: 6px; }
+  .sw {
+    width: 28px; height: 28px; border-radius: 50%; padding: 0;
+    border: 2px solid rgba(0,0,0,.18); position: relative;
+  }
+  .sw.on { outline: 3px solid var(--ink); outline-offset: 2px; }
+  .sw[data-c="BLACK"]::after { content: "off"; position: absolute; inset: 0; color: #fff; font-size: 10px; display: grid; place-items: center; }
+
+  /* ---------- motor grid ---------- */
+  .grid-wrap { overflow-x: auto; padding-bottom: 6px; }
+  table.grid { border-collapse: separate; border-spacing: 8px; min-width: 980px; }
+  .grid th { font-family: Fredoka, system-ui, sans-serif; font-weight: 600; font-size: .95rem; text-align: center; padding: 4px; }
+  .grid th.rowh { text-align: left; width: 120px; vertical-align: middle; }
+  .grid th .dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 6px; border: 1px solid rgba(0,0,0,.2); vertical-align: -1px; }
+  .grid th small { display: block; font-family: system-ui, sans-serif; font-weight: 400; color: var(--muted); font-size: .78rem; }
+  .corner { color: var(--muted); font-size: .8rem !important; font-weight: 400 !important; text-align: left !important; }
+  td.cell { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px; vertical-align: top; width: 25%; }
+  td.cell.unused { background: var(--unused); opacity: .5; }
+  td.cell.active { outline: 4px solid var(--accent); outline-offset: 1px; }
+  .move { display: flex; align-items: center; gap: 8px; font-weight: 600; margin-bottom: 8px; min-height: 28px; }
+  .move .icon { font-size: 1.4rem; width: 28px; text-align: center; }
+  .motor { display: grid; grid-template-columns: 40px 64px 1fr 34px; align-items: center; gap: 6px; font-size: .85rem; }
+  .motor + .motor { margin-top: 6px; }
+  .motor .side { color: var(--muted); }
+  .dirbtn { padding: 3px 4px; font-size: .78rem; border-radius: 8px; }
+  .dirbtn.fwd { background: #e7f7ee; border-color: #9fdcb8; color: #146b3a; }
+  .dirbtn.rev { background: #fdecec; border-color: #f2b1b1; color: #9b1c1c; }
+  .motor input[type=range] { width: 100%; accent-color: var(--accent); }
+  .motor .val { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+
+  /* ---------- test drive ---------- */
+  #drive { display: grid; grid-template-columns: minmax(260px, 1fr) 220px; gap: 24px; padding: 20px; align-items: center; }
+  .slider-row { display: grid; gap: 4px; margin-bottom: 16px; }
+  .slider-row input { width: 100%; accent-color: var(--accent); }
+  .slider-row .readout { font-weight: 600; }
+  #drive-says { font-size: 1.15rem; font-weight: 600; font-family: Fredoka, system-ui, sans-serif; }
+  #buggy { width: 220px; height: 260px; }
+  .banner { padding: 12px 16px; border-radius: 10px; background: var(--bad-bg); color: var(--bad); font-weight: 600; }
+  @media (max-width: 700px) {
+    main { padding: 16px; }
+    header { padding: 10px 16px; }
+    #drive { grid-template-columns: 1fr; justify-items: center; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div style="flex:1">
+    <h1>🚗 Buggy Zone Editor</h1>
+    <div class="file" id="file"></div>
+  </div>
+  <span id="status"></span>
+  <button id="undo" title="Throw away changes and reload config.py">Undo changes</button>
+  <button id="save" class="primary">💾 Save to config.py</button>
+</header>
+
+<main>
+  <div id="loadErr" class="banner" hidden></div>
+
+  <section>
+    <h2>1. Distance zones</h2>
+    <p class="help">The buggy measures how far away things are, in inches. Each distance falls into a zone.
+      A zone starts where the zone before it ends. Zone 1 always starts at 0. The last zone
+      goes on forever (∞). Pick light colors for each zone too.</p>
+    <div id="ruler"></div>
+    <div id="ruler-scale"></div>
+    <div id="zones"></div>
+  </section>
+
+  <section>
+    <h2>2. What should the motors do?</h2>
+    <p class="help">Each box is one situation: <b>row</b> = the zone in <b>front</b> of the buggy,
+      <b>column</b> = the zone <b>behind</b> it. For each box, set which way each wheel turns (forward or reverse)
+      and how fast it goes (0–100).</p>
+    <div class="grid-wrap"><table class="grid" id="grid"></table></div>
+  </section>
+
+  <section>
+    <h2>3. Test drive (pretend)</h2>
+    <p class="help">Move the sliders to pretend something is near the buggy. The matching box above gets
+      highlighted, and the buggy below shows what it would do.</p>
+    <div class="card" id="drive">
+      <div>
+        <div class="slider-row">
+          <label for="fd">Something in <b>front</b> is…</label>
+          <input id="fd" type="range" min="0" max="100" value="20">
+          <span class="readout" id="fd-out"></span>
+        </div>
+        <div class="slider-row">
+          <label for="bd">Something <b>behind</b> is…</label>
+          <input id="bd" type="range" min="0" max="100" value="60">
+          <span class="readout" id="bd-out"></span>
+        </div>
+        <div id="drive-says"></div>
+      </div>
+      <svg id="buggy" viewBox="0 0 220 260" aria-label="Buggy seen from above"></svg>
+    </div>
+  </section>
+</main>
+
+<script>
+const ZONES = ["ZONE_1", "ZONE_2", "ZONE_3", "ZONE_4"];
+const NICK = ["Danger!", "Warning", "Normal", "Wide open"];
+const COLORS = ["BLACK", "RED", "YELLOW", "GREEN", "CYAN", "BLUE", "PURPLE", "WHITE"];
+const COLOR_NAME = { BLACK: "Off", RED: "Red", YELLOW: "Yellow", GREEN: "Green",
+                     CYAN: "Cyan", BLUE: "Blue", PURPLE: "Purple", WHITE: "White" };
+const MAX_INCHES = 150;
+const css = (c) => `var(--c-${c})`;
+
+let S = null;         // current state: {zones, frontColors, backColors, motors}
+let saved = "";       // JSON of last saved state, for dirty tracking
+
+const $ = (id) => document.getElementById(id);
+const h = (tag, attrs = {}, ...kids) => {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") el.className = v;
+    else if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
+    else if (v !== false && v != null) el.setAttribute(k, v === true ? "" : v);
+  }
+  for (const k of kids.flat()) if (k != null) el.append(k);
+  return el;
+};
+
+// ---------------------------------------------------------------- zone rules
+// Only each zone's MAX is stored by the user; every MIN is worked out from it,
+// so "min = previous max" and "Zone 1 starts at 0" can never be broken.
+function zoneInfo() {
+  const out = [];
+  let lo = 0, ended = false;
+  S.zones.forEach(([, hi], i) => {
+    if (ended) { out.push({ i, used: false }); return; }
+    if (i === ZONES.length - 1) hi = -1;           // last zone always ∞
+    let err = null;
+    if (hi !== -1) {
+      if (!Number.isInteger(hi)) err = "Type a whole number.";
+      else if (hi <= lo) err = `Must be bigger than ${lo}.`;
+      else if (hi > MAX_INCHES) err = `The sensor can't see past ${MAX_INCHES}".`;
+    }
+    out.push({ i, used: true, lo, hi, err });
+    if (hi === -1) ended = true; else if (!err) lo = hi;
+  });
+  return out;
+}
+const usedCount = () => zoneInfo().filter(z => z.used).length;
+const hasErrors = () => zoneInfo().some(z => z.used && z.err);
+
+function zoneFor(d) {   // same rule as config.dist2zone: min <= d < max
+  for (const z of zoneInfo()) {
+    if (!z.used) break;
+    if (d >= z.lo && (z.hi === -1 || d < z.hi)) return z.i;
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------- what the motors do
+function describe(cell) {
+  const L = cell.left[1] * (cell.left[0] === "MTR_FWD" ? 1 : -1);
+  const R = cell.right[1] * (cell.right[0] === "MTR_FWD" ? 1 : -1);
+  if (L === 0 && R === 0) return ["⏹", "Stops"];
+  if (L >= 0 && R >= 0) {
+    if (L === R) return ["⬆", "Goes straight"];
+    return L > R ? ["↗", "Curves right"] : ["↖", "Curves left"];
+  }
+  if (L <= 0 && R <= 0) {
+    if (L === R) return ["⬇", "Backs up straight"];
+    return L < R ? ["↙", "Backs up, swinging left"] : ["↘", "Backs up, swinging right"];
+  }
+  return L > 0 ? ["↻", "Spins right"] : ["↺", "Spins left"];
+}
+
+// ---------------------------------------------------------------- rendering
+function swatches(current, onPick) {
+  return h("div", { class: "swatches" }, COLORS.map(c =>
+    h("button", { class: "sw" + (c === current ? " on" : ""), "data-c": c,
+                  title: COLOR_NAME[c], "aria-label": COLOR_NAME[c],
+                  style: `background:${css(c)}`, onclick: () => onPick(c) })));
+}
+
+function renderZones() {
+  const info = zoneInfo();
+  const box = $("zones"); box.replaceChildren();
+  info.forEach(z => {
+    const i = z.i;
+    const head = h("div", { class: "zone-head" },
+      h("h3", {}, `Zone ${i + 1}`), h("span", { class: "nick" }, NICK[i]));
+    if (!z.used) {
+      box.append(h("div", { class: "card zone unused" }, head,
+        h("div", { class: "unused-msg" },
+          `Not used right now, because an earlier zone goes on forever. Untick “goes on forever” in that zone to use this one.`)));
+      return;
+    }
+    const isLast = i === ZONES.length - 1;
+    const forever = z.hi === -1;
+    const setHi = (v) => { S.zones[i][1] = v; changed(); };
+    const input = h("input", { type: "number", min: z.lo + 1, max: MAX_INCHES, value: forever ? "" : z.hi,
+      class: z.err ? "bad" : "", "aria-label": `Zone ${i + 1} ends at`,
+      onchange: (e) => setHi(e.target.value === "" ? NaN : Number(e.target.value)) });
+    const step = (d) => h("button", { onclick: () => setHi(Math.min(MAX_INCHES, Math.max(z.lo + 1, (z.hi || z.lo) + d))) }, d > 0 ? "+" : "−");
+
+    box.append(h("div", { class: "card zone", style: `--zc:${css(S.frontColors[i])}` },
+      head,
+      h("div", { class: "dist" },
+          h("label", {}, "Start"), h("span", { class: "fixed" }, `${z.lo}"`, h("span", { class: "nick" }, i === 0 ? "  (always 0)" : ` (= Zone${i} end)`)), // : "  (Prev. end)")),
+        h("label", {}, "End"),
+        forever ? h("span", { class: "fixed" }, "∞ forever")
+                : h("div", { class: "stepper" }, step(-1), input, step(+1), h("span", {}, "inches"))),
+      z.err ? h("div", { class: "err" }, "⚠ " + z.err) : null,
+      h("label", { class: "forever" },
+        h("input", { type: "checkbox", checked: forever, disabled: isLast,
+          onchange: (e) => toggleForever(i, e.target.checked) }),
+        isLast ? "Default last zone" : "No end, last zone"),
+                 // "goes on forever (the last zone always does)" : "goes on forever (no more zones after this)"),
+      h("div", {}, h("div", { class: "swatch-label" }, "Front lights when the front is in this zone"),
+        swatches(S.frontColors[i], c => { S.frontColors[i] = c; changed(); })),
+      h("div", {}, h("div", { class: "swatch-label" }, "Back lights when the back is in this zone"),
+        swatches(S.backColors[i], c => { S.backColors[i] = c; changed(); }))
+    ));
+  });
+
+  // the ruler
+  const used = info.filter(z => z.used);
+  const shownMax = Math.max(60, ...used.filter(z => z.hi > 0 && !z.err).map(z => z.hi + 20));
+  const ruler = $("ruler"); ruler.replaceChildren();
+  used.forEach(z => {
+    const end = z.hi === -1 || z.err ? shownMax : z.hi;
+    const w = Math.max(1, end - z.lo);
+    const dark = ["BLACK", "BLUE", "PURPLE", "RED"].includes(S.frontColors[z.i]);
+    ruler.append(h("div", { style: `flex:${w};background:${css(S.frontColors[z.i])};color:${dark ? "#fff" : "#1d2433"}` },
+      `Zone ${z.i + 1}`));
+  });
+  $("ruler-scale").replaceChildren(h("span", {}, `0" (touching)`),
+    h("span", {}, `${shownMax}"+ (far away) →`));
+}
+
+function toggleForever(i, on) {
+  if (on) {
+    S.zones[i][1] = -1;
+  } else {
+    const lo = zoneInfo()[i].lo;
+    S.zones[i][1] = Math.min(MAX_INCHES - 1, lo + 12);
+    // switch the next zone on, and make *it* the one that goes on forever
+    if (i + 1 < ZONES.length) S.zones[i + 1][1] = -1;
+  }
+  changed();
+}
+
+function renderGrid() {
+  const info = zoneInfo();
+  const tbl = $("grid"); tbl.replaceChildren();
+  const zh = (i, dotColor) => [h("span", { class: "dot", style: `background:${css(dotColor)}` }),
+    `Zone ${i + 1}`, h("small", {}, rangeText(info[i]))];
+  tbl.append(h("tr", {},
+    h("th", { class: "corner" }, "Front ↓   Back →"),
+    ZONES.map((_, b) => h("th", {}, "Back: ", ...zh(b, S.backColors[b])))));
+  ZONES.forEach((_, f) => {
+    tbl.append(h("tr", {},
+      h("th", { class: "rowh" }, "Front: ", ...zh(f, S.frontColors[f])),
+      ZONES.map((_, b) => {
+        const used = info[f].used && info[b].used;
+        return h("td", { class: "cell" + (used ? "" : " unused"), id: `cell-${f}-${b}` },
+          cellBody(f, b, used));
+      })));
+  });
+}
+
+function rangeText(z) {
+  if (!z.used) return "not used";
+  if (z.err) return "fix the distance!";
+  return z.hi === -1 ? `${z.lo}" and up` : `${z.lo}" to ${z.hi}"`;
+}
+
+function cellBody(f, b, used) {
+  const cell = S.motors[f][b];
+  const [icon, words] = describe(cell);
+  const motor = (side, label) => {
+    const [dir, speed] = cell[side];
+    const val = h("span", { class: "val" }, speed);
+    return h("div", { class: "motor" },
+      h("span", { class: "side" }, label),
+      h("button", { class: "dirbtn " + (dir === "MTR_FWD" ? "fwd" : "rev"), disabled: !used,
+          title: "Click to switch forward / reverse",
+          onclick: () => { cell[side][0] = dir === "MTR_FWD" ? "MTR_REV" : "MTR_FWD"; changed(); } },
+        dir === "MTR_FWD" ? "⬆ fwd" : "⬇ rev"),
+      h("input", { type: "range", min: 0, max: 100, step: 5, value: speed, disabled: !used,
+          "aria-label": `${label} motor speed`,
+          oninput: (e) => { cell[side][1] = Number(e.target.value); val.textContent = e.target.value; refreshMove(f, b); markDirty(); renderDrive(); },
+          onchange: () => changed() }),
+      val);
+  };
+  return [h("div", { class: "move", id: `move-${f}-${b}` }, h("span", { class: "icon" }, icon), words),
+          motor("left", "Left"), motor("right", "Right")];
+}
+
+function refreshMove(f, b) {
+  const [icon, words] = describe(S.motors[f][b]);
+  $(`move-${f}-${b}`).replaceChildren(h("span", { class: "icon" }, icon), words);
+}
+
+// ---------------------------------------------------------------- test drive
+function renderDrive() {
+  const fd = Number($("fd").value), bd = Number($("bd").value);
+  const fz = zoneFor(fd), bz = zoneFor(bd);
+  $("fd-out").textContent = `${fd} inches → ${fz == null ? "no zone" : "Zone " + (fz + 1)}`;
+  $("bd-out").textContent = `${bd} inches → ${bz == null ? "no zone" : "Zone " + (bz + 1)}`;
+  document.querySelectorAll("td.cell.active").forEach(td => td.classList.remove("active"));
+  const svg = $("buggy");
+  if (fz == null || bz == null) { $("drive-says").textContent = "Fix the zone distances first."; svg.innerHTML = ""; return; }
+  $(`cell-${fz}-${bz}`)?.classList.add("active");
+  const cell = S.motors[fz][bz];
+  const [icon, words] = describe(cell);
+  $("drive-says").textContent = `${icon}  ${words}`;
+
+  const fc = css(S.frontColors[fz]), bc = css(S.backColors[bz]);
+  const wheel = (x, [dir, sp]) => {
+    const up = dir === "MTR_FWD";
+    const len = 10 + sp * 0.5;
+    const y1 = 130, y2 = up ? 130 - len : 130 + len;
+    const arrow = sp === 0 ? "" :
+      `<line x1="${x}" y1="${y1}" x2="${x}" y2="${y2}" stroke="${up ? "#1f9d55" : "#d93838"}" stroke-width="6" stroke-linecap="round"/>
+       <polygon points="${x - 9},${y2 + (up ? 6 : -6)} ${x + 9},${y2 + (up ? 6 : -6)} ${x},${y2 + (up ? -8 : 8)}" fill="${up ? "#1f9d55" : "#d93838"}"/>`;
+    return `<rect x="${x - 11}" y="95" width="22" height="70" rx="6" fill="#333"/>${arrow}
+            <text x="${x}" y="${sp === 0 ? 135 : 250}" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">${sp}</text>`;
+  };
+  svg.innerHTML = `
+    <text x="110" y="14" text-anchor="middle" font-size="12" fill="#6b7489">FRONT</text>
+    <rect x="45" y="30" width="130" height="200" rx="22" fill="#cfd6e4" stroke="#8a94a8" stroke-width="2"/>
+    <circle cx="75" cy="44" r="10" fill="${fc}" stroke="#555"/><circle cx="145" cy="44" r="10" fill="${fc}" stroke="#555"/>
+    <circle cx="75" cy="216" r="10" fill="${bc}" stroke="#555"/><circle cx="145" cy="216" r="10" fill="${bc}" stroke="#555"/>
+    ${wheel(30, cell.left)}${wheel(190, cell.right)}
+    <text x="110" y="134" text-anchor="middle" font-size="12" fill="#6b7489">BACK ↓</text>`;
+}
+
+// ---------------------------------------------------------------- state
+function markDirty() {
+  const dirty = JSON.stringify(S) !== saved;
+  const st = $("status");
+  if (hasErrors()) { st.textContent = "⚠ Fix the red boxes before saving"; st.className = "err"; }
+  else if (dirty) { st.textContent = "● Not saved yet"; st.className = "dirty"; }
+  else { st.textContent = "✓ Saved"; st.className = "ok"; }
+  $("save").disabled = !dirty || hasErrors();
+  $("undo").disabled = !dirty;
+}
+function changed() { renderZones(); renderGrid(); renderDrive(); markDirty(); }
+
+async function load() {
+  const r = await fetch("/api/config");
+  const data = await r.json();
+  if (!r.ok) throw new Error(data.error);
+  accept(data);
+}
+function accept(data) {
+  $("file").textContent = "Editing " + data.path;
+  S = { zones: data.zones, frontColors: data.frontColors, backColors: data.backColors, motors: data.motors };
+  saved = JSON.stringify(S);
+  $("loadErr").hidden = true;
+  changed();
+}
+
+$("save").onclick = async () => {
+  $("save").disabled = true;
+  try {
+    const r = await fetch("/api/config", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(S) });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error);
+    accept(data);
+    $("status").textContent = "✓ Saved! Now copy config.py to the buggy.";
+  } catch (e) {
+    $("status").textContent = "✗ Didn't save: " + e.message; $("status").className = "err";
+    $("save").disabled = false;
+  }
+};
+$("undo").onclick = () => { if (confirm("Throw away your changes?")) load(); };
+$("fd").oninput = $("bd").oninput = renderDrive;
+window.addEventListener("beforeunload", (e) => { if (S && JSON.stringify(S) !== saved) e.preventDefault(); });
+
+load().catch(e => {
+  const b = $("loadErr"); b.hidden = false;
+  b.textContent = "Couldn't read config.py: " + e.message + "  (Is zone_editor.py still running?)";
+});
+</script>
+</body>
+</html>

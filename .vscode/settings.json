@@ -11,5 +11,10 @@
     ],
     "python.analysis.extraPaths": [
         "~/.micropico-stubs/included"
+    ],
+    "cSpell.words": [
+        "Kitronik",
+        "KPRB",
+        "usonic"
     ]
 }

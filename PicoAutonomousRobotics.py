@@ -15,7 +15,7 @@ usedSM = [False, False, False, False, False, False, False, False]
 class KitronikPicoRobotBuggy:
     #button fo user input:
     button = Pin(0,Pin.IN,Pin.PULL_DOWN)
-    
+
 #Motors: controls the motor directions and speed for both motors
     def _initMotors(self):
         self.motor1Forward=PWM(Pin(20))
@@ -29,26 +29,26 @@ class KitronikPicoRobotBuggy:
         self.motor2Reverse.freq(100)
         self.motorOff("l")
         self.motorOff("r")
-        
+
     def motorOn(self,motor, direction, speed, jumpStart=False):
         #cap speed to 0-100%
         if (speed<0):
             speed = 0
         elif (speed>100):
             speed=100
-        
+
         frequency = 100
         if (speed < 15):
             frequency = 20
         elif (speed < 20):
             frequency = 50
-            
-        
+
+
         self.motor1Forward.freq(frequency)
         self.motor1Reverse.freq(frequency)
         self.motor2Forward.freq(frequency)
         self.motor2Reverse.freq(frequency)
-        
+
         # Jump start motor by setting to 100% for 20 ms,
         # then dropping to speed specified.
         # Down to jump start the motor when set at low speed
@@ -81,7 +81,7 @@ class KitronikPicoRobotBuggy:
     #To turn off set the speed to 0...
     def motorOff(self,motor):
         self.motorOn(motor,"f",0)
-        
+
 #ServoControl:
     #Servo 0 degrees -> pulse of 0.5ms, 180 degrees 2.5ms
     #pulse train freq 50hz - 20mS
@@ -93,21 +93,21 @@ class KitronikPicoRobotBuggy:
     pulseTrain = 20000
     degreesToUS = 2000/180
     piEstimate = 3.1416
-    
-    #this code drives a pwm on the PIO. It is running at 2Mhz, which gives the PWM a 1uS resolution. 
+
+    #this code drives a pwm on the PIO. It is running at 2Mhz, which gives the PWM a 1uS resolution.
     @asm_pio(sideset_init=PIO.OUT_LOW)
     def _servo_pwm():
-    #first we clear the pin to zero, then load the registers. Y is always 20000 - 20uS, x is the pulse 'on' length.     
+    #first we clear the pin to zero, then load the registers. Y is always 20000 - 20uS, x is the pulse 'on' length.
         pull(noblock) .side(0)
         mov(x, osr) # Keep most recent pull data stashed in X, for recycling by noblock
         mov(y, isr) # ISR must be preloaded with PWM count max
-    #This is where the looping work is done. the overall loop rate is 1Mhz (clock is 2Mhz - we have 2 instructions to do)    
+    #This is where the looping work is done. the overall loop rate is 1Mhz (clock is 2Mhz - we have 2 instructions to do)
         label("loop")
         jmp(x_not_y, "skip") #if there is 'excess' Y number leave the pin alone and jump to the 'skip' label until we get to the X value
         nop()         .side(1)
         label("skip")
         jmp(y_dec, "loop") #count down y by 1 and jump to pwmloop. When y is 0 we will go back to the 'pull' command
-             
+
     #doesnt actually register/unregister, just stops and starts the servo PIO
     def registerServo(self,servo):
         if(not self.servos[servo].active()):
@@ -115,21 +115,21 @@ class KitronikPicoRobotBuggy:
     def deregisterServo(self, servo):
         if(self.servos[servo].active()):
             self.servos[servo].active(0)
- 
-    # goToPosition takes a degree position for the serov to goto. 
+
+    # goToPosition takes a degree position for the serov to goto.
     # 0degrees->180 degrees is 0->2000us, plus offset of 500uS
     #1 degree ~ 11uS.
-    #This function does the sum then calls goToPeriod to actually poke the PIO 
+    #This function does the sum then calls goToPeriod to actually poke the PIO
     def goToPosition(self,servo, degrees):
         pulseLength = int(degrees*self.degreesToUS + 500)
         self.goToPeriod(servo,pulseLength)
-    
+
     # Takes the servo to change and the angle in radians to move to.
     # 0 radians to 3.1416
     def goToRadians(self, servo, radians):
         period = int((radians / self.piEstimate) * 2000) + 500
         self.goToPeriod(servo, period)
-    
+
     def goToPeriod(self,servo, period):
         if(period < 500):
             period = 500
@@ -140,7 +140,7 @@ class KitronikPicoRobotBuggy:
             self.servos[servo].put(period)
         else:
             raise Exception("TRYING TO CONTROL UNREGISTERED SERVO") #harsh, but at least you'll know
-        
+
     def _initServos(self):
         servoPins = [21,10,17,11]
         for i in range(4):
@@ -156,13 +156,13 @@ class KitronikPicoRobotBuggy:
                 if j == 7:
                     # Cannot find an unused SM
                     raise ValueError("Could not claim a StateMachine, all in use")
-            
+
             self.servos[i].put(self.pulseTrain)
             self.servos[i].exec("pull()")
             self.servos[i].exec("mov(isr, osr)")
-            
+
 #ZIPLEDS
-#We drive the ZIP LEDs using one of the PIO statemachines. 
+#We drive the ZIP LEDs using one of the PIO statemachines.
     @asm_pio(sideset_init=PIO.OUT_LOW, out_shiftdir=PIO.SHIFT_LEFT, autopull=True, pull_thresh=24)
     def _ZIPLEDOutput():
         T1 = 2
@@ -176,8 +176,8 @@ class KitronikPicoRobotBuggy:
         label("do_zero")
         nop()                   .side(0)    [T2 - 1]
         wrap()
-        
-    #define some colour tuples for people to use.    
+
+    #define some colour tuples for people to use.
     BLACK = (0, 0, 0)
     RED = (255, 0, 0)
     YELLOW = (255, 150, 0)
@@ -187,7 +187,7 @@ class KitronikPicoRobotBuggy:
     PURPLE = (180, 0, 255)
     WHITE = (255, 255, 255)
     COLOURS = (BLACK, RED, YELLOW, GREEN, CYAN, BLUE, PURPLE, WHITE)
-    
+
     #sow pushes the current setup of theLEDS to the physical LEDS - it makes them visible.
     def show(self):
         brightAdjustedLEDs = array.array("I", [0 for _ in range(4)])
@@ -199,7 +199,7 @@ class KitronikPicoRobotBuggy:
         self.ZIPLEDs.put(brightAdjustedLEDs, 8)
     def clear(self,whichLED):
         self.setLED(whichLED,self.BLACK)
-        
+
     #sets the colour of an individual LED. Use show to make change visible
     def setLED(self,whichLED, whichColour):
         if(whichLED<0):
@@ -208,7 +208,7 @@ class KitronikPicoRobotBuggy:
             raise Exception("INVALID LED:",whichLED," specified")
         else:
             self.theLEDs[whichLED] = (whichColour[1]<<16) + (whichColour[0]<<8) + whichColour[2]
-    
+
     #gets the stored colour of an individual LED, which isnt nessecerily the colour on show if it has been changed, but not 'show'n
     def getLED(self,whichLED):
         if(whichLED<0):
@@ -217,7 +217,7 @@ class KitronikPicoRobotBuggy:
             raise Exception("INVALID LED:",whichLED," specified")
         else:
             return(((self.theLEDs[whichLED]>>8) & 0xff), ((self.theLEDs[whichLED]>>16)& 0xff) ,((self.theLEDs[whichLED])& 0xff))
-    
+
     #takes 0-100 as a brightness value, brighness is applies in the'show' function
     def setBrightness(self, value):
             #cap to 0-100%
@@ -229,7 +229,7 @@ class KitronikPicoRobotBuggy:
 
 #Ultrasonic:
     #there are 2 Ultrasonic headers. The front one is the default if not explicitly called wth 'r' for rear
-    # if we get a timeout (which would be a not fitted sensor, or a range over the sensors maximium the distance returned is -1           
+    # if we get a timeout (which would be a not fitted sensor, or a range over the sensors maximium the distance returned is -1
     def getDistance(self, whichSensor = "f"):
         trigger = Pin(14, Pin.OUT)
         echo = Pin(15, Pin.IN)
@@ -242,12 +242,12 @@ class KitronikPicoRobotBuggy:
         sleep_us(5)
         trigger.low()
         timePassed = time_pulse_us(echo, 1, self.maxDistanceTimeout)
-        if(timePassed ==-1): #timeout - range equivalent of 5 meters - past the sensors limit or not fitted
+        if(timePassed < 0): #timeout - range equivalent of 5 meters - past the sensors limit or not fitted
             distance = -1
         else:
             distance = (timePassed * self.conversionFactor) / 2
         return distance
-       
+
     def setMeasurementsTo(self,units):
         #0.0343 cm per microsecond or 0.0135 inches
         if(units == "inch"):
@@ -255,9 +255,9 @@ class KitronikPicoRobotBuggy:
         else:
             self.conversionFactor = 0.0343 #cm is default - we are in  metric world.
 
-#Linefollower: there are 3 LF sensors on the plug in board.        
+#Linefollower: there are 3 LF sensors on the plug in board.
     #gets the raw (0-65535) value of the sensor. 65535 is full dark, 0 would be full brightness.
-    #in practice the values tend to vary between approx 5000 - 60000   
+    #in practice the values tend to vary between approx 5000 - 60000
     def getRawLFValue(self,whichSensor):
         if(whichSensor == "c"):
             return self.CentreLF.read_u16()
@@ -268,13 +268,13 @@ class KitronikPicoRobotBuggy:
         else:
             raise Exception("INVALID SENSOR") #harsh, but at least you'll know
             return 0 #just in case
-    
+
     #These functions set the thresholds for light/dark sensing to return true / false
     #there should be a gap between light and dark thresholds, to give soem deadbanding.
     #if specified OptionalLeftThreshold and OptionalRightThreshold give you the ability to
     #specify 3 sets of values. If missing then all sensors use the same value.
     #initially all sensors are set to 30000  for light and 35000 for dark.
-        
+
     def setLFDarkValue(self,darkThreshold, OptionalLeftThreshold = -1, OptionalRightThreshold = -1):
         self.centreDarkVal = darkThreshold
         if(OptionalLeftThreshold == -1):
@@ -285,7 +285,7 @@ class KitronikPicoRobotBuggy:
             self.rightDarkVal = darkThreshold
         else:
             self.rightDarkVal = OptionalRightThreshold
-        
+
     def setLFLightValue(self,lightThreshold, OptionalLeftThreshold = -1, OptionalRightThreshold = -1):
         self.centreLightVal = lightThreshold
         if(OptionalLeftThreshold == -1):
@@ -296,7 +296,7 @@ class KitronikPicoRobotBuggy:
             self.rightLightVal = lightThreshold
         else:
             self.rightLightVal = OptionalRightThreshold
- 
+
     #this returns True when sensor is over light and FALSE over Dark.
     #Light/Dark is determined by the thresholds.
     # This code will throw an exception if the value returned is in the 'gery' area.
@@ -318,7 +318,7 @@ class KitronikPicoRobotBuggy:
             elif(sensorVal < self.leftLightVal):
                 return True
             else:
-                raise Exception("Sensor value 'Grey'")            
+                raise Exception("Sensor value 'Grey'")
         elif (whichSensor == "r"):
             sensorVal = self.RightLF.read_u16()
             if(sensorVal >= self.rightDarkVal):
@@ -333,7 +333,7 @@ class KitronikPicoRobotBuggy:
 #Buzzer: functions will sound a horn or a required frequency. Option aswell to silence the buzzer
     def silence(self):
         self.buzzer.duty_u16(0) #silence by setting duty to 0
-        
+
     def soundFrequency(self,frequency):
         if (frequency<0):
             frequency = 0
@@ -341,7 +341,7 @@ class KitronikPicoRobotBuggy:
             frequency=3000
         self.buzzer.freq(frequency) #1khz. Find out the limits of PWM on the Pico - doesn seem to make a noise past 3080hz
         self.buzzer.duty_u16(32767) #50% duty
-        
+
     def beepHorn(self):
         self.soundFrequency(350)
         sleep(0.3)
@@ -370,9 +370,9 @@ class KitronikPicoRobotBuggy:
             if i == 7:
                 # Cannot find an unused SM
                 raise ValueError("Could not claim a StateMachine, all in use")
-        
+
         self.theLEDs = array.array("I", [0 for _ in range(4)]) #an array for the LED colours.
-        self.brightness = 0.2 #20% initially 
+        self.brightness = 0.2 #20% initially
         self.ZIPLEDs.active(1)
         #set the measurements to metric by default.
         self.conversionFactor = 0.01359876 # FIXME: 0.0343
@@ -385,10 +385,10 @@ class KitronikPicoRobotBuggy:
         self.RightLF = ADC(26)
         #The LF circuit is setup to give a high value when a dark (non reflective) surface is in view,and a low value when a light (reflective) surface is in view.
         #To aid there is a 'is it light or dark' function, and these values set the thresholds for determining that.
-        self.centreLightVal = 30000 
+        self.centreLightVal = 30000
         self.centreDarkVal = 35000
-        self.leftLightVal = 30000 
+        self.leftLightVal = 30000
         self.leftDarkVal = 35000
-        self.rightLightVal = 30000 
+        self.rightLightVal = 30000
         self.rightDarkVal = 35000
-    
+
